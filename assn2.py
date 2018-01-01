@@ -141,9 +141,9 @@ correct = 0
 total = testX.shape[0]
 
 for i in range(int(testX.shape[0]/batchsize)):
-    predict=net(Variable(torch.from_numpy(testX[100*batchsize:(101)*batchsize])))
+    predict=net(Variable(torch.from_numpy(testX[i*batchsize:(i+1)*batchsize])))
     _, predicted = torch.max(predict.data, 1)
-    label=torch.LongTensor(trainy[i*batchsize:(i+1)*batchsize])
+    label=torch.LongTensor(testy[i*batchsize:(i+1)*batchsize])
     correct += (predicted == label).sum()
     
 
