@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+Created on Thu Jan  4 18:16:21 2018
+
+@author: pritish
+"""
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
 Created on Tue Dec 19 15:21:27 2017
 
 @author: pritish
@@ -10,17 +18,25 @@ Created on Tue Dec 19 15:21:27 2017
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 import torch
-#from data import dataloader
+from data import dataloader
 import numpy as np
-import h5py
+#import h5py
 import pandas as pd
+import matplotlib.pyplot as plt
+import cv2
 
 #traindata
 
-#imval,class_=dataloader('/home/pritish/Downloads/annotations/trainval.txt')
-h5f = h5py.File('trainim.h5','r')
+trainX,trainy=dataloader('/home/pritish/Downloads/annotations/trainval.txt')
+
+im=imval[100]    
+#plt.imshow(im)
+plt.imshow(cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
+
+
+
+h5f = h5py.File('trim.h5','r')
 trainX=h5f['dataset_2'][:]
 trainy=h5f['dataset_1'][:]
 h5f.close()
@@ -28,7 +44,7 @@ h5f.close()
 
 
 
-#imvalt,classt=dataloader('/home/pritish/Downloads/annotations/test.txt')
+testX,testy=dataloader('/home/pritish/Downloads/annotations/test.txt')
 h5f = h5py.File('testim.h5','r')
 testX=h5f['dataset_2'][:]
 testy=h5f['dataset_1'][:]
@@ -36,7 +52,9 @@ h5f.close()
 
 
 
-trainX=np.swapaxes(trainX,1,3)
+
+trainX=np.swapaxes(trainX,1,3).astype('float32')
+trainy=np.array(trainy).astype('int64')
 trainy=trainy-np.ones(trainy.shape)
 '''trainy=pd.get_dummies(trainy)
 trainy=np.array(trainy)
@@ -44,7 +62,8 @@ trainy=np.array(trainy)
 testy=pd.get_dummies(testy)
 testy=np.array(testy)'''
 
-testX=np.swapaxes(testX,1,3)
+testX=np.swapaxes(testX,1,3).astype('float32')
+testy=np.array(testy).astype('int64')
 testy=testy-np.ones(testy.shape)
 
 totalsize=trainX.shape[0]
@@ -61,29 +80,28 @@ class convnet(nn.Module):
     
     def __init__(self):
         super().__init__()
-        self.conv1=nn.Conv2d(3,48,11,4,2)
-        self.conv2=nn.Conv2d(48,128,5,1,1)
-        #self.conv3=nn.Conv2d(128,192,3,1,1)
-        #self.conv4=nn.Conv2d(192,192,3,1,1)
-        self.conv5=nn.Conv2d(128,128,3,1,1)
-        self.pool=nn.MaxPool2d(3,2)
-        self.fc1=nn.Linear(3200,1600)
-        self.fc2=nn.Linear(1600,1600)
-        self.fc3=nn.Linear(1600,37)
-        self.drop=torch.nn.modules.Dropout(p=0.5)
+        self.conv=nn.Sequential(nn.Conv2d(3,48,11,stride=4,padding=2),
+                                nn.ReLU(),
+                                nn.MaxPool2d(3,stride=2),
+                                nn.Conv2d(48,96,5,stride=1,padding=1),
+                                nn.ReLU(),
+                                nn.MaxPool2d(3,stride=2),
+                                nn.Conv2d(96,256,3,stride=1,padding=1),
+                                nn.ReLU(),
+                                nn.MaxPool2d(3,stride=2)
+                                )
+        self.linear=nn.Sequential(nn.Linear(6400,3200),
+                                  nn.ReLU(),
+                                  nn.Linear(3200,37)
+                                  )
+    
     
     def forward(self,x):
-        x=self.pool(F.relu(self.conv1(x)))
-        x=self.pool(F.relu(self.conv2(x)))
-        #x=F.relu(self.conv3(x))
-        #x=F.relu(self.conv4(x))
-        x=self.pool(F.relu(self.conv5(x)))
+        y=self.conv.forward(x)
         
-        x=x.view(-1,self.numfeatures(x))
-        x=F.relu(self.fc1(x))
-        x=F.relu(self.fc2(x))
-        x=self.drop(x)
-        out=self.fc3(x)
+        y=y.view(-1,self.numfeatures(y))
+        
+        out=self.linear.forward(y)
         
         return out
     
@@ -114,7 +132,9 @@ np.random.shuffle(index)
 trainX=trainX[index]
 trainy=trainy[index]
 
-for i in range(3):
+net.train()
+for i in range(4):
+    
     for j in range(int(totalsize/batchsize)):
         #np.random.shuffle(index)
         tX,ty=trainX[index[j*batchsize:(j+1)*batchsize]],trainy[index[j*batchsize:(j+1)*batchsize]]
@@ -135,10 +155,11 @@ for i in range(3):
         l=loss(predict,ty)
         l.backward()
         optimizer.step()
-    print(l)
+    print(l.data[0])
         
 correct = 0
 total = testX.shape[0]
+
 
 for i in range(int(testX.shape[0]/batchsize)):
     predict=net(Variable(torch.from_numpy(testX[i*batchsize:(i+1)*batchsize])))
