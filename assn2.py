@@ -55,6 +55,7 @@ class convnet(nn.Module):
         self.fc3=nn.Linear(1600,37)
         self.re=nn.ReLU()
         self.drop=torch.nn.modules.Dropout(p=0.5)
+        self.dc5=torch.nn.modules.Dropout2d(p=0.2)
     
     
     def forward(self,x):
@@ -63,7 +64,7 @@ class convnet(nn.Module):
         #x=F.relu(self.conv3(x))
         #x=F.relu(self.conv4(x))
         x=self.pool(self.re(self.c5b(self.conv5(x))))
-        
+        x=self.dc5(x)
         x=x.view(-1,self.numfeatures(x))
         x=self.re(self.fb1(self.fc1.forward(x)))
         #x=F.relu(self.fc2(x))
